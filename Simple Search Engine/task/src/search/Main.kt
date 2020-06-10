@@ -1,37 +1,42 @@
 package search
 
-fun main() {
-    val people = People()
-    loop@ do {
-        println("=== Menu ===")
-        println("1. Find a person")
-        println("2. Print all people")
-        println("0. Exit")
-        val choice = readLine()!!.toInt()
-        println()
-        when (choice) {
-            1 -> people.search()
-            2 -> people.list()
-            0 -> break@loop
-            else -> println("Incorrect option! Try again.")
-        }
-        println()
-    } while (true)
-    println("Bye!")
+import java.io.File
+
+fun main(args: Array<String>) {
+    val (option, parameter) = args.toList().zipWithNext().single()
+    if (option == "--data") {
+        val people = People(parameter)
+        SearchEngine.execute(people)
+    }
 }
 
-class People {
-    private val people: List<String> = {
-        println("Enter the number of people:")
-        val numPeople = readLine()!!.toInt()
-        val people = mutableListOf<String>()
-        println("Enter all people:")
-        repeat(numPeople) {
-            people.add(readLine()!!)
-        }
-        println()
-        people
-    }()
+object SearchEngine {
+    private val MENU = """
+            === Menu ===
+            1. Find a person
+            2. Print all people
+            0. Exit
+    """.trimIndent()
+
+    fun execute(people: People) {
+        loop@ do {
+            println(MENU)
+            val choice = readLine()!!.toInt()
+            println()
+            when (choice) {
+                1 -> people.search()
+                2 -> people.list()
+                0 -> break@loop
+                else -> println("Incorrect option! Try again.")
+            }
+            println()
+        } while (true)
+        println("Bye!")
+    }
+}
+
+class People(fileName: String) {
+    private val people = File(fileName).readLines()
 
     fun search() {
         println("Enter a name or email to search all suitable people.")
