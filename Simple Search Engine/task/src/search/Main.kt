@@ -37,20 +37,46 @@ object SearchEngine {
 
 class People(fileName: String) {
     private val people = File(fileName).readLines()
+    private val index = Index(people)
 
     fun search() {
         println("Enter a name or email to search all suitable people.")
-        val search = readLine()!!
-        val found = people.filter { it.contains(search, ignoreCase = true) }
-        if (found.isNotEmpty()) {
-            found.forEach { println(it) }
-        } else {
+        val searchTerm = readLine()!!
+        val lineNums = index.search(searchTerm)
+        if (lineNums == null) {
             println("No matching people found.")
+        } else {
+            println("${lineNums.size} persons found:")
+            lineNums.forEach { println(people[it]) }
         }
     }
 
     fun list() {
         println("=== List of people ===")
         people.forEach { println(it) }
+    }
+}
+
+class Index(dataset: List<String>) {
+    private val entries = create(dataset)
+
+    private fun create(dataset: List<String>): Map<String, MutableList<Int>> {
+        val entries = mutableMapOf<String, MutableList<Int>>()
+        dataset.forEachIndexed { lineNum, line ->
+            line.split(" ").forEach { word ->
+                val lcWord = word.toLowerCase()
+                val entry = entries[lcWord]
+                if (entry == null) {
+                    entries[lcWord] = mutableListOf(lineNum)
+                } else {
+                    entry.add(lineNum)
+                }
+            }
+        }
+        return entries
+    }
+
+    fun search(searchTerm: String): List<Int>? {
+        return entries[searchTerm.toLowerCase()]
     }
 }
