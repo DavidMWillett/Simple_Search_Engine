@@ -24,7 +24,10 @@ object SearchEngine {
             val choice = readLine()!!.toInt()
             println()
             when (choice) {
-                1 -> people.search()
+                1 -> {
+                    val strategy = selectStrategy() ?: continue@loop
+                    people.search(strategy)
+                }
                 2 -> people.list()
                 0 -> break@loop
                 else -> println("Incorrect option! Try again.")
@@ -33,21 +36,33 @@ object SearchEngine {
         } while (true)
         println("Bye!")
     }
+
+    private fun selectStrategy(): Strategy? {
+        println("Select a matching strategy: ALL, ANY, NONE")
+        val strategy = when (readLine()!!) {
+            "ALL" -> Strategy.ALL
+            "ANY" -> Strategy.ANY
+            "NONE" -> Strategy.NONE
+            else -> null
+        }
+        println()
+        return strategy
+    }
 }
 
 class People(fileName: String) {
     private val people = File(fileName).readLines()
     private val index = Index(people)
 
-    fun search() {
+    fun search(strategy: Strategy) {
         println("Enter a name or email to search all suitable people.")
-        val searchTerm = readLine()!!
-        val lineNums = index.search(searchTerm)
-        if (lineNums == null) {
-            println("No matching people found.")
+        val terms = readLine()!!.toLowerCase().split(" ")
+        val lines = index.search(terms, strategy)
+        if (lines.isNotEmpty()) {
+            println("${lines.size} persons found:")
+            lines.forEach { println(people[it]) }
         } else {
-            println("${lineNums.size} persons found:")
-            lineNums.forEach { println(people[it]) }
+            println("No matching people found.")
         }
     }
 
@@ -58,25 +73,32 @@ class People(fileName: String) {
 }
 
 class Index(dataset: List<String>) {
-    private val entries = create(dataset)
+    private val index = mutableMapOf<String, MutableSet<Int>>()
 
-    private fun create(dataset: List<String>): Map<String, MutableList<Int>> {
-        val entries = mutableMapOf<String, MutableList<Int>>()
-        dataset.forEachIndexed { lineNum, line ->
-            line.split(" ").forEach { word ->
-                val lcWord = word.toLowerCase()
-                val entry = entries[lcWord]
-                if (entry == null) {
-                    entries[lcWord] = mutableListOf(lineNum)
-                } else {
-                    entry.add(lineNum)
-                }
-            }
-        }
-        return entries
+    init {
+        dataset.forEachIndexed { line, text -> text.split(" ").forEach { word -> add(word, line) } }
     }
 
-    fun search(searchTerm: String): List<Int>? {
-        return entries[searchTerm.toLowerCase()]
+    private fun add(term: String, line: Int) {
+        index.getOrPut(term.toLowerCase()) { mutableSetOf() }.add(line)
     }
+
+    fun search(terms: List<String>, strategy: Strategy) = strategy.search(index, terms)
+}
+
+enum class Strategy {
+    ALL {
+        override fun search(index: Map<String, Set<Int>>, terms: List<String>) =
+                terms.map { index[it].orEmpty() }.reduce { acc, set -> acc intersect set }
+    },
+    ANY {
+        override fun search(index: Map<String, Set<Int>>, terms: List<String>) =
+                terms.map { index[it].orEmpty() }.reduce { acc, set -> acc union set }
+    },
+    NONE {
+        override fun search(index: Map<String, Set<Int>>, terms: List<String>) =
+                terms.map { index[it].orEmpty() }.fold(index.values.flatten().toSet()) { acc, set -> acc - set }
+    };
+
+    abstract fun search(index: Map<String, Set<Int>>, terms: List<String>): Set<Int>
 }
